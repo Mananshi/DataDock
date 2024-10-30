@@ -1,0 +1,8 @@
+fastapi[all]
+uvicorn[standard]
+boto3
+asyncpg
+databases
+python-multipart
+psycopg2-binary
+python-dotenv
