@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   server:
     build: ./server
@@ -15,9 +14,9 @@ services:
     ports:
       - "3000:3000"
     volumes:
-    - ./client:/app
-    env_file: 
-    - .env.local
+      - ./client:/app
+    env_file:
+      - .env.local
     depends_on:
       - server
   db:
@@ -30,5 +29,14 @@ services:
       POSTGRES_DB: filedata
     volumes:
       - db_data:/var/lib/postgresql/data
+  minio:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
 volumes:
   db_data:
