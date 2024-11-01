@@ -41,7 +41,7 @@ This project is a file upload application built using FastAPI (backend) and Next
    docker-compose up --build
 4. **Access the Application:**
    - Frontend: Open http://localhost:3000 in your browser to access the UI.
-   - Backend API Documentation: Use http://localhost:8000 as the base URL for the APIs.
+   - Backend API Documentation: Go to https://singleowner.postman.co/workspace/DataDock~d328e96c-8cab-41d7-aa98-a16bef8ea1fa/collection/24150770-86b5f1b8-fe8b-4e2f-a379-8fd62f88fcd4?action=share&creator=24150770 to view the FastAPI Postman collection.
 
 ## Configuring Storage Credentials
 1. **Local Storage with MinIO:** By default, the application uses MinIO for object storage, which can run locally through Docker.
