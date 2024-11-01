@@ -12,6 +12,6 @@ class FileMetadata(Base):
     file_size = Column(Integer)
     uploaded_size = Column(Integer, default=0)
     storage_path = Column(String)
-    # "in_progress" or "completed"
+    # possible values: "in_progress" | "completed"
     upload_status = Column(String, default="in_progress")
     created_at = Column(DateTime, server_default=func.now())

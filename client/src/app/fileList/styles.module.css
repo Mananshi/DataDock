@@ -1,0 +1,23 @@
+.fileList {
+    list-style: none;
+    padding: 0;
+}
+
+.filelist li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 10px 0;
+}
+
+.fileList button {
+    background-color: #0070f3;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    cursor: pointer;
+}
+
+.fileList button:hover {
+    background-color: #005bb5;
+}
