@@ -40,56 +40,85 @@ Base.metadata.create_all(bind=engine)
 
 
 # Helper function to upload file chunks
-def upload_chunk(file, bucket_name, file_path, chunk):
+async def upload_chunk(file, bucket_name, file_path, chunk, db, file_metadata):
+    chunk_size = len(chunk)
     chunk_stream = io.BytesIO(chunk)
-    minio_client.put_object(
-        bucket_name,
-        file_path,
-        data=chunk_stream,
-        length=len(chunk)
-    )
-    return len(chunk)
+    minio_client.put_object(bucket_name, file_path,
+                            data=chunk_stream, length=chunk_size)
+
+    # Update uploaded size in the database
+    file_metadata.uploaded_size += chunk_size
+    db.commit()
 
 
 @app.post("/upload")
 async def upload_files(files: list[UploadFile], db: Session = Depends(get_db)):
     ensure_bucket("uploads")
     responses = []
+    CHUNK_SIZE = 1024 * 1024  # 1 MB chunks
+
     for file in files:
-        # Ensure only CSV files are accepted
         if not file.filename.endswith('.csv'):
             raise HTTPException(
                 status_code=400, detail="Only .csv files are allowed")
+        # Check for existing metadata to resume uploads
+        existing_metadata = db.query(FileMetadata).filter(
+            FileMetadata.filename == file.filename).first()
 
-        file.file.seek(0, 2)  # Seek to the end to get size
-        file_size = file.file.tell()
-        file.file.seek(0)  # Reset seek to the beginning
+        if existing_metadata:
+            # If metadata exists, check uploaded size
+            file_metadata = existing_metadata
+        else:
+            file.file.seek(0, 2)
+            file_size = file.file.tell()
+            file.file.seek(0)
 
-        # File metadata and uploading logic
-        file_metadata = FileMetadata(
-            filename=file.filename,
-            content_type=file.content_type,
-            file_size=file_size,
-            storage_path=f"uploads/{file.filename}"
-        )
-        db.add(file_metadata)
+            file_metadata = FileMetadata(
+                filename=file.filename,
+                content_type=file.content_type,
+                file_size=file_size,
+                storage_path=f"uploads/{file.filename}",
+                uploaded_size=0,
+                upload_status="in_progress"
+            )
+            db.add(file_metadata)
+            db.commit()
+            db.refresh(file_metadata)
+
+        file.file.seek(file_metadata.uploaded_size)
+        # Start chunked upload
+        while file_metadata.uploaded_size < file_metadata.file_size:
+            # Read the next chunk
+            remaining_size = file_metadata.file_size - file_metadata.uploaded_size
+            chunk_size = min(CHUNK_SIZE, remaining_size)
+            chunk = file.file.read(chunk_size)
+
+            if not chunk:
+                break  # End of file
+
+            # Upload the chunk to Minio
+            await upload_chunk(
+                file,
+                bucket_name="uploads",
+                file_path=file_metadata.storage_path,
+                chunk=chunk,
+                db=db,
+                file_metadata=file_metadata
+            )
+
+        # Update status after upload completion
+        if file_metadata.uploaded_size >= file_metadata.file_size:
+            file_metadata.upload_status = "completed"
         db.commit()
-        db.refresh(file_metadata)
-
-        minio_client.put_object(
-            "uploads",
-            file_metadata.storage_path,
-            file.file,
-            length=file_size
-        )
 
         responses.append({
             "id": file_metadata.id,
             "filename": file.filename,
-            "status": "uploaded",
-            "uploaded_size": file_size,
+            "status": file_metadata.upload_status,
+            "uploaded_size": file_metadata.uploaded_size,
             "file_size": file_size,
         })
+
     return responses
 
 
