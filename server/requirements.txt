@@ -1,0 +1,11 @@
+fastapi[all]
+uvicorn[standard]
+sqlalchemy
+boto3
+asyncpg
+databases
+python-multipart
+psycopg2-binary
+python-dotenv
+minio
+alembic
