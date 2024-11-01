@@ -5,6 +5,7 @@ import styles from './styles.module.css';
 
 const FileList = () => {
     const [files, setFiles] = useState([]);
+    const [previews, setPreviews] = useState({});
 
     useEffect(() => {
         const fetchFiles = async () => {
@@ -18,6 +19,16 @@ const FileList = () => {
 
         fetchFiles();
     }, []);
+
+
+    const fetchPreview = async (fileId, filename) => {
+        try {
+            const response = await axios.get(`http://localhost:8000/preview/${fileId}`);
+            setPreviews((prev) => ({ ...prev, [filename]: response.data }));
+        } catch (error) {
+            console.error(`Error previewing file ${filename}:`, error);
+        }
+    };
 
     const downloadFile = async (id, name) => {
         try {
@@ -40,11 +51,19 @@ const FileList = () => {
     return (
         <div>
             <h1>Uploaded Files</h1>
-            <ul className={styles.fileList}>
+            <ul className={styles.ul}>
                 {files.map((file) => (
-                    <li>
-                        <span>{file.filename}</span>
-                        <button onClick={() => downloadFile(file.id, file.filename)}>Download</button>
+                    <li className={styles.fileTile} key={file.id}>
+                        <div className={styles.fileTileHeader}>
+                            <span>{file.filename}</span>
+                        </div>
+                        <div className={styles.fileTileButtons}>
+                            <button className={styles.button} onClick={() => downloadFile(file.id, file.filename)}>Download</button>
+                            <button className={styles.button} onClick={() => fetchPreview(file.id, file.filename)}>Preview</button>
+                        </div>
+                        {previews[file.filename] && (
+                            <pre className={styles.previewBox}>{previews[file.filename].join('\n')}</pre>
+                        )}
                     </li>
                 ))}
             </ul>

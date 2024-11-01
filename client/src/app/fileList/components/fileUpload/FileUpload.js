@@ -7,7 +7,7 @@ import styles from './styles.module.css';
 
 const FileUpload = () => {
     const [files, setFiles] = useState([]);
-    const [uploadProgress, setUploadProgress] = useState(0);
+    const [uploadProgress, setUploadProgress] = useState({});
     const [uploadSuccess, setUploadSuccess] = useState(false);
     const [error, setError] = useState('');
     const router = useRouter();
@@ -22,34 +22,42 @@ const FileUpload = () => {
             setError('');
         }
 
-        setFiles((prevFiles) => [...prevFiles, ...validFiles]);
+        const newFiles = validFiles.map(file => ({ file, progress: 0 }));
+        setFiles((prevFiles) => [...prevFiles, ...newFiles]);
+    };
+
+    const uploadFile = async (file) => {
+        const formData = new FormData();
+        formData.append('files', file);
+
+        try {
+            await axios.post('http://localhost:8000/upload', formData, {
+                onUploadProgress: (progressEvent) => {
+                    const percentCompleted = Math.round(
+                        (progressEvent.loaded * 100) / progressEvent.total
+                    );
+                    setUploadProgress((prevProgress) => ({
+                        ...prevProgress,
+                        [file.name]: percentCompleted,
+                    }));
+                },
+            });
+        } catch (error) {
+            console.error(`Error uploading ${file.name}:`, error);
+        }
     };
 
     const uploadFiles = async () => {
         if (files.length === 0) return;
 
-        const formData = new FormData();
-        files.forEach((file) => {
-            formData.append('files', file);
-        });
+        const uploadTasks = files.map(({ file }) => uploadFile(file));
+        await Promise.all(uploadTasks);
 
-        try {
-            await axios.post('http://localhost:8000/upload', formData, {
-                onUploadProgress: (progressEvent) => {
-                    const total = progressEvent.total;
-                    const current = progressEvent.loaded;
-                    setUploadProgress(Math.round((current / total) * 100));
-                },
-            });
-            setUploadSuccess(true);
-            setFiles([]);
-            setTimeout(() => {
-                setUploadSuccess(false);
-                router.push('/fileList');
-            }, 2000);
-        } catch (error) {
-            console.error('Error uploading files:', error);
-        }
+        setUploadSuccess(true);
+        setTimeout(() => {
+            setUploadSuccess(false);
+            router.push('/fileList');
+        }, 2000);
     };
 
     const { getRootProps, getInputProps } = useDropzone({
@@ -61,20 +69,39 @@ const FileUpload = () => {
         <div>
             <div {...getRootProps({ className: styles.dropzone })}>
                 <input {...getInputProps()} />
-                <p>Drag and drop your file(s) here, or <span className={styles.clickable} onClick={() => document.querySelector('input[type="file"]').click()}>click here</span> to select from your system.</p>
+                <p>
+                    Drag and drop your file(s) here, or{' '}
+                    <span
+                        className={styles.clickable}
+                        onClick={() => document.querySelector('input[type="file"]').click()}
+                    >
+                        click here
+                    </span>{' '}
+                    to select from your system.
+                </p>
             </div>
-            <button onClick={uploadFiles} disabled={files.length === 0}>
-                Upload
-            </button>
-            {uploadProgress > 0 && <div>Progress: {uploadProgress}%</div>}
+            <div className={styles.uploadButton}>
+                <button className={styles.button} onClick={uploadFiles} disabled={files.length === 0}>
+                    Upload
+                </button>
+            </div>
             {uploadSuccess && <div className={styles.snackbar}>Files successfully uploaded!</div>}
 
             {files.length > 0 && (
                 <div>
                     <h3>Files to Upload:</h3>
-                    <ul>
-                        {files.map((file) => (
-                            <li key={file.name}>{file.name}</li>
+                    <ul className={styles.ul}>
+                        {files.map(({ file }) => (
+                            <li className={styles.li} key={file.name}>
+                                <span>{file.name}</span>
+                                <div className={styles.progressBarContainer}>
+                                    <div
+                                        className={styles.progressBar}
+                                        style={{ width: `${uploadProgress[file.name] || 0}%` }}
+                                    ></div>
+                                </div>
+                                <span style={{ "marginTop": 10 }}>{uploadProgress[file.name] || 0}%</span>
+                            </li>
                         ))}
                     </ul>
                 </div>
